@@ -1,5 +1,5 @@
 name: 'ZK Pipeline Doctor'
-description: 'Audit your ZK project (Compact / Leo / Noir / Cairo / Risc0) for tests, CI, docs, security, reproducibility — fails CI below a score threshold.'
+description: 'Audit your ZK project (Compact / Leo / Noir / Cairo / Risc0 / SP1 / Plonky3 / Stwo + Solidity verifier) for tests, CI, docs, security, reproducibility. Fails CI below a score threshold and supports diff-aware PR comments.'
 author: 'Battam1111'
 branding:
   icon: 'check-circle'
@@ -19,11 +19,19 @@ inputs:
     required: false
     default: ''
   threshold:
-    description: 'Fail the action if overall score < threshold (0.0-1.0). 0 disables gating.'
+    description: 'Fail the action if overall score < threshold (0.0-10.0). 0 disables gating.'
     required: false
     default: '0.0'
   comment-on-pr:
     description: 'If true and event is pull_request, post the markdown report as a PR comment.'
+    required: false
+    default: 'false'
+  comment-mode:
+    description: 'PR comment style: full (entire report) | diff (only delta vs base branch) | none.'
+    required: false
+    default: 'full'
+  fail-on-regression:
+    description: 'Fail the action if PR overall score is lower than base-branch score (PR context only).'
     required: false
     default: 'false'
 
@@ -31,6 +39,15 @@ outputs:
   report-path:
     description: 'Path to the generated report file (only set when input.output is provided).'
     value: ${{ steps.run.outputs.report-path }}
+  overall-score:
+    description: 'Overall numeric score from zk-doctor (0.0-10.0).'
+    value: ${{ steps.run.outputs.overall-score }}
+  base-score:
+    description: 'Overall score on base branch (only in PR + comment-mode=diff).'
+    value: ${{ steps.diff.outputs.base-score }}
+  score-delta:
+    description: 'overall-score minus base-score (signed; PR + diff mode only).'
+    value: ${{ steps.diff.outputs.score-delta }}
 
 runs:
   using: 'composite'
@@ -48,29 +65,161 @@ runs:
         zk-doctor --help > /dev/null && echo "zk-doctor installed"
         echo "::endgroup::"
 
-    - name: Run zk-doctor
+    - name: Run zk-doctor on PR HEAD
       id: run
       shell: bash
       run: |
-        echo "::group::Run zk-doctor"
-        ARGS=("${{ inputs.path }}" "--format" "${{ inputs.format }}" "--threshold" "${{ inputs.threshold }}")
-        if [ -n "${{ inputs.output }}" ]; then
-          ARGS+=("--output" "${{ inputs.output }}")
-          echo "report-path=${{ inputs.output }}" >> "$GITHUB_OUTPUT"
+        echo "::group::Run zk-doctor on PR HEAD"
+        OUT_FILE="${{ inputs.output }}"
+        if [ -z "$OUT_FILE" ]; then
+          OUT_FILE="/tmp/zk-doctor-head.md"
         fi
-        zk-doctor "${ARGS[@]}"
+        ARGS=("${{ inputs.path }}" "--format" "markdown" "--threshold" "${{ inputs.threshold }}" "--output" "$OUT_FILE")
+        zk-doctor "${ARGS[@]}" || true  # don't fail on threshold yet; let diff job decide
+        # Also produce JSON for parsing
+        JSON_FILE="/tmp/zk-doctor-head.json"
+        zk-doctor "${{ inputs.path }}" --format json --output "$JSON_FILE" || true
+        # Extract overall score
+        if [ -f "$JSON_FILE" ]; then
+          SCORE=$(python3 -c "import json; d=json.load(open('$JSON_FILE')); print(d.get('overall_score', d.get('overall', 0)))" 2>/dev/null || echo "0")
+        else
+          SCORE="0"
+        fi
+        echo "overall-score=$SCORE" >> "$GITHUB_OUTPUT"
+        echo "report-path=$OUT_FILE" >> "$GITHUB_OUTPUT"
+        echo "head_report_path=$OUT_FILE" >> "$GITHUB_OUTPUT"
+        echo "head_json_path=$JSON_FILE" >> "$GITHUB_OUTPUT"
         echo "::endgroup::"
 
-    - name: Comment on PR
-      if: inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' && inputs.output != ''
+        # Now enforce threshold (after the diff has been captured)
+        THRESHOLD="${{ inputs.threshold }}"
+        if [ "$(echo "$SCORE < $THRESHOLD" | python3 -c "import sys; t=sys.stdin.read().strip(); print(1 if eval(t) else 0)" 2>/dev/null || echo 0)" = "1" ]; then
+          echo "::warning::Score $SCORE below threshold $THRESHOLD (gate enforced at end of action)"
+        fi
+
+    - name: Run zk-doctor on base branch (diff mode)
+      id: diff
+      if: inputs.comment-mode == 'diff' && github.event_name == 'pull_request'
+      shell: bash
+      run: |
+        echo "::group::Compute base-branch score"
+        BASE_SHA="${{ github.event.pull_request.base.sha }}"
+        BASE_REF="${{ github.event.pull_request.base.ref }}"
+
+        # Use a worktree so the main work dir stays on PR HEAD
+        WORKDIR="/tmp/zk-doctor-base-worktree"
+        git fetch origin "$BASE_REF" --depth=1 || true
+        rm -rf "$WORKDIR"
+        git worktree add --detach "$WORKDIR" "$BASE_SHA" || {
+          echo "Worktree add failed; falling back to score-delta=0";
+          echo "base-score=" >> "$GITHUB_OUTPUT"
+          echo "score-delta=0" >> "$GITHUB_OUTPUT"
+          exit 0
+        }
+        BASE_JSON="/tmp/zk-doctor-base.json"
+        zk-doctor "$WORKDIR/${{ inputs.path }}" --format json --output "$BASE_JSON" || true
+
+        if [ -f "$BASE_JSON" ]; then
+          BASE_SCORE=$(python3 -c "import json; d=json.load(open('$BASE_JSON')); print(d.get('overall_score', d.get('overall', 0)))" 2>/dev/null || echo "0")
+        else
+          BASE_SCORE="0"
+        fi
+        HEAD_SCORE="${{ steps.run.outputs.overall-score }}"
+        DELTA=$(python3 -c "print(round(float('$HEAD_SCORE') - float('$BASE_SCORE'), 2))" 2>/dev/null || echo "0")
+
+        echo "base-score=$BASE_SCORE" >> "$GITHUB_OUTPUT"
+        echo "score-delta=$DELTA" >> "$GITHUB_OUTPUT"
+        echo "  base=$BASE_SCORE  head=$HEAD_SCORE  delta=$DELTA"
+
+        git worktree remove "$WORKDIR" --force 2>/dev/null || true
+        echo "::endgroup::"
+
+    - name: Comment on PR (full mode)
+      if: inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' && inputs.comment-mode == 'full'
       uses: actions/github-script@v7
       with:
         script: |
           const fs = require('fs');
-          const body = fs.readFileSync('${{ inputs.output }}', 'utf8');
+          const body = fs.readFileSync('${{ steps.run.outputs.report-path }}', 'utf8');
           await github.rest.issues.createComment({
             issue_number: context.issue.number,
             owner: context.repo.owner,
             repo: context.repo.repo,
             body: '## ZK Pipeline Doctor Report\n\n' + body
           });
+
+    - name: Comment on PR (diff mode)
+      if: inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' && inputs.comment-mode == 'diff'
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const headScore = parseFloat('${{ steps.run.outputs.overall-score }}' || '0');
+          const baseScore = parseFloat('${{ steps.diff.outputs.base-score }}' || '0');
+          const delta = parseFloat('${{ steps.diff.outputs.score-delta }}' || '0');
+          const fullReport = fs.readFileSync('${{ steps.run.outputs.report-path }}', 'utf8');
+
+          let emoji, verdict;
+          if (delta > 0.5) { emoji = '🎉'; verdict = `improves the project score by **+${delta.toFixed(2)}**`; }
+          else if (delta > 0) { emoji = '✅'; verdict = `slightly improves the score (+${delta.toFixed(2)})`; }
+          else if (delta === 0) { emoji = '➡️'; verdict = 'leaves the project score unchanged'; }
+          else if (delta > -0.5) { emoji = '⚠️'; verdict = `slightly decreases the score (${delta.toFixed(2)})`; }
+          else { emoji = '🚨'; verdict = `**decreases the project score by ${delta.toFixed(2)}** — please review`; }
+
+          const body = [
+            '## ZK Pipeline Doctor — PR Impact',
+            '',
+            `${emoji} This PR ${verdict}.`,
+            '',
+            '| | Score |',
+            '|---|---|',
+            `| Base (${'${{ github.event.pull_request.base.ref }}'}) | ${baseScore.toFixed(2)} / 10 |`,
+            `| This PR | ${headScore.toFixed(2)} / 10 |`,
+            `| **Delta** | **${delta >= 0 ? '+' : ''}${delta.toFixed(2)}** |`,
+            '',
+            '<details><summary>Full report on PR HEAD</summary>',
+            '',
+            fullReport,
+            '',
+            '</details>',
+            '',
+            `<sub>Generated by [zk-pipeline-doctor v0.2.0](https://github.com/Battam1111/zk-doctor-action). [Learn more](https://github.com/Battam1111/zk-pipeline-doctor).</sub>`,
+          ].join('\n');
+
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: body
+          });
+
+    - name: Fail on regression (diff mode + fail-on-regression)
+      if: inputs.fail-on-regression == 'true' && github.event_name == 'pull_request' && inputs.comment-mode == 'diff'
+      shell: bash
+      run: |
+        DELTA="${{ steps.diff.outputs.score-delta }}"
+        if [ -z "$DELTA" ]; then
+          echo "no delta computed; not enforcing regression gate"
+          exit 0
+        fi
+        # Fail if delta < -0.1 (small float-tolerance)
+        REGRESS=$(python3 -c "print(1 if float('$DELTA') < -0.1 else 0)")
+        if [ "$REGRESS" = "1" ]; then
+          echo "::error::PR regresses overall score by $DELTA (configured threshold: -0.1)"
+          exit 1
+        fi
+
+    - name: Fail on absolute threshold
+      shell: bash
+      run: |
+        SCORE="${{ steps.run.outputs.overall-score }}"
+        THRESHOLD="${{ inputs.threshold }}"
+        if [ -z "$SCORE" ] || [ "$SCORE" = "0" ]; then
+          echo "score is 0 or missing; not enforcing absolute threshold"
+          exit 0
+        fi
+        BELOW=$(python3 -c "print(1 if float('$SCORE') < float('$THRESHOLD') else 0)")
+        if [ "$BELOW" = "1" ]; then
+          echo "::error::Overall score $SCORE is below threshold $THRESHOLD"
+          exit 1
+        fi

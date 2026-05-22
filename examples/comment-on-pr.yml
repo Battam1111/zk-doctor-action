@@ -1,0 +1,16 @@
+# Audit every PR, comment the report inline, fail below 0.7.
+name: ZK audit
+on: [pull_request]
+permissions:
+  pull-requests: write
+  contents: read
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Battam1111/zk-doctor-action@v1
+        with:
+          threshold: '0.7'
+          output: 'zk-doctor-report.md'
+          comment-on-pr: 'true'

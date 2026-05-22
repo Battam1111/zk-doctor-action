@@ -1,0 +1,76 @@
+name: 'ZK Pipeline Doctor'
+description: 'Audit your ZK project (Compact / Leo / Noir / Cairo / Risc0) for tests, CI, docs, security, reproducibility — fails CI below a score threshold.'
+author: 'Battam1111'
+branding:
+  icon: 'check-circle'
+  color: 'purple'
+
+inputs:
+  path:
+    description: 'Path to project directory to audit'
+    required: false
+    default: '.'
+  format:
+    description: 'Output format: markdown or json'
+    required: false
+    default: 'markdown'
+  output:
+    description: 'Path to write report file (optional). If unset, report goes to stdout only.'
+    required: false
+    default: ''
+  threshold:
+    description: 'Fail the action if overall score < threshold (0.0-1.0). 0 disables gating.'
+    required: false
+    default: '0.0'
+  comment-on-pr:
+    description: 'If true and event is pull_request, post the markdown report as a PR comment.'
+    required: false
+    default: 'false'
+
+outputs:
+  report-path:
+    description: 'Path to the generated report file (only set when input.output is provided).'
+    value: ${{ steps.run.outputs.report-path }}
+
+runs:
+  using: 'composite'
+  steps:
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install zk-pipeline-doctor
+      shell: bash
+      run: |
+        echo "::group::Install zk-pipeline-doctor"
+        pip install --quiet git+https://github.com/Battam1111/zk-pipeline-doctor.git@main
+        zk-doctor --help | head -5
+        echo "::endgroup::"
+
+    - name: Run zk-doctor
+      id: run
+      shell: bash
+      run: |
+        echo "::group::Run zk-doctor"
+        ARGS=("${{ inputs.path }}" "--format" "${{ inputs.format }}" "--threshold" "${{ inputs.threshold }}")
+        if [ -n "${{ inputs.output }}" ]; then
+          ARGS+=("--output" "${{ inputs.output }}")
+          echo "report-path=${{ inputs.output }}" >> "$GITHUB_OUTPUT"
+        fi
+        zk-doctor "${ARGS[@]}"
+        echo "::endgroup::"
+
+    - name: Comment on PR
+      if: inputs.comment-on-pr == 'true' && github.event_name == 'pull_request' && inputs.output != ''
+      uses: actions/github-script@v7
+      with:
+        script: |
+          const fs = require('fs');
+          const body = fs.readFileSync('${{ inputs.output }}', 'utf8');
+          await github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: '## ZK Pipeline Doctor Report\n\n' + body
+          });

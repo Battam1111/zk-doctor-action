@@ -1,0 +1,17 @@
+name: self-test
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  self-audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Audit the action repo itself — should pass with a decent score.
+      - uses: ./
+        with:
+          threshold: '0.0'
+          format: 'markdown'

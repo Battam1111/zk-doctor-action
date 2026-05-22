@@ -1,0 +1,11 @@
+# Fail CI if the overall score drops below 0.7.
+name: ZK audit
+on: [push, pull_request]
+jobs:
+  audit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: Battam1111/zk-doctor-action@v1
+        with:
+          threshold: '0.7'

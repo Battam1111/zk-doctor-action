@@ -80,11 +80,10 @@ Every finding has a concrete command to fix it. No vague suggestions.
 
 ---
 
-## Pricing
+## License
 
-- **Action**: free, MIT-licensed.
-- **CLI**: free, MIT-licensed.
-- **Hosted $99 audit** with prioritized fix list, expert narrative, and PDF/HTML report delivered in 24h: [pricing page](https://battam1111.github.io/midnight-zk-cookbook/pricing.html). [See sample](https://battam1111.github.io/bounty-radar-data/audits/sample.html).
+MIT. No paid tier at this time. See [zk-pipeline-doctor](https://github.com/Battam1111/zk-pipeline-doctor) for the underlying CLI.
+
 
 ---
 
@@ -100,6 +99,6 @@ MIT © 2026 Battam1111
 
 - [**zk-pipeline-doctor**](https://github.com/Battam1111/zk-pipeline-doctor) — OSS CLI this action wraps
 - [**zk-doctor-bot**](https://github.com/Battam1111/zk-doctor-bot) — GitHub App: deeper, model-narrated PR reviews
-- [**midnight-zk-cookbook**](https://github.com/Battam1111/midnight-zk-cookbook) — ZK tutorials + paid audits + bundles
+- [**midnight-zk-cookbook**](https://github.com/Battam1111/midnight-zk-cookbook) — currently in rollback; see DISCLOSURE there
 
 <!-- related-projects:end -->

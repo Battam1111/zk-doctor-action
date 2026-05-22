@@ -91,3 +91,15 @@ Every finding has a concrete command to fix it. No vague suggestions.
 ## License
 
 MIT © 2026 Battam1111
+
+---
+
+<!-- related-projects:start -->
+
+## Related projects
+
+- [**zk-pipeline-doctor**](https://github.com/Battam1111/zk-pipeline-doctor) — OSS CLI this action wraps
+- [**zk-doctor-bot**](https://github.com/Battam1111/zk-doctor-bot) — GitHub App: deeper, model-narrated PR reviews
+- [**midnight-zk-cookbook**](https://github.com/Battam1111/midnight-zk-cookbook) — ZK tutorials + paid audits + bundles
+
+<!-- related-projects:end -->

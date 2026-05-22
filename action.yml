@@ -45,7 +45,7 @@ runs:
       run: |
         echo "::group::Install zk-pipeline-doctor"
         pip install --quiet git+https://github.com/Battam1111/zk-pipeline-doctor.git@main
-        zk-doctor --help | head -5
+        zk-doctor --help > /dev/null && echo "zk-doctor installed"
         echo "::endgroup::"
 
     - name: Run zk-doctor

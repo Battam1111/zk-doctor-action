@@ -1,104 +1,89 @@
-# ZK Pipeline Doctor — GitHub Action
+# zk-doctor-action — ZK Pipeline Doctor GitHub Action
 
-[![Marketplace](https://img.shields.io/badge/GitHub%20Marketplace-zk--doctor--action-purple?logo=github)](https://github.com/marketplace/actions/zk-pipeline-doctor)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Powered by zk-pipeline-doctor](https://img.shields.io/badge/CLI-zk--pipeline--doctor-blue)](https://github.com/Battam1111/zk-pipeline-doctor)
+[![Marketplace](https://img.shields.io/badge/GitHub%20Marketplace-zk--doctor--action-purple?logo=github&style=for-the-badge)](https://github.com/marketplace/actions/zk-pipeline-doctor)
+[![Latest](https://img.shields.io/badge/Latest-v1.1.0-blue?style=for-the-badge)](https://github.com/Battam1111/zk-doctor-action/releases/latest)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg?style=for-the-badge)](https://opensource.org/licenses/MIT)
 
-Run a 6-detector health audit on every push or pull request to your zero-knowledge project. Fails CI if the score drops below your threshold.
-
-**Detectors:** language (Compact / Leo / Noir / Cairo / Risc0) · tests · CI · docs · security · reproducibility.
-
----
-
-## Quick start
-
-### Minimal (just print the report)
+Audit your ZK project on every push and PR. Free. 5-minute install.
 
 ```yaml
-name: ZK audit
-on: [push, pull_request]
-jobs:
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Battam1111/zk-doctor-action@v1
+- uses: actions/checkout@v4
+- uses: Battam1111/zk-doctor-action@v1
 ```
 
-### Fail PRs below 0.7 + comment the report
+That's it. Within 30 seconds of pushing, you get a 6-detector health report in your Actions tab.
 
+## What gets detected
+
+8 ZK ecosystem signatures + 6 health dimensions:
+
+- **Languages**: Compact (Midnight), Leo (Aleo), Noir (Aztec), Cairo (Starknet + Cairo M)
+- **Rust zkVMs**: risc0, SP1, Plonky3, Stwo, OpenVM, Nexus, Jolt
+- **Solidity ZK verifiers** (pairing + verify-function heuristic)
+- **Health**: language, tests, CI, docs, security, reproducibility
+
+Powered by the open-source [zk-pipeline-doctor](https://github.com/Battam1111/zk-pipeline-doctor) CLI.
+
+## Modes
+
+### Minimal (just print the report)
 ```yaml
-name: ZK audit
-on: [pull_request]
+- uses: Battam1111/zk-doctor-action@v1
+```
+
+### Fail PRs that regress (v1.1.0+)
+```yaml
+- uses: Battam1111/zk-doctor-action@v1
+  with:
+    comment-mode: 'diff'         # only show delta from base branch
+    fail-on-regression: 'true'   # fail CI if PR drops score >0.1
+    output: 'zk-doctor-report.md'
+    comment-on-pr: 'true'
 permissions:
   pull-requests: write
   contents: read
-jobs:
-  audit:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: Battam1111/zk-doctor-action@v1
-        with:
-          threshold: '0.7'
-          output: 'zk-doctor-report.md'
-          comment-on-pr: 'true'
 ```
 
----
+When `comment-mode: 'diff'`, the action runs zk-doctor on both PR HEAD **and** the base branch (via a git worktree), then posts a compact PR comment showing the score delta with an emoji-coded verdict.
 
 ## Inputs
 
-| Name              | Default     | Description                                                                       |
-|-------------------|-------------|-----------------------------------------------------------------------------------|
-| `path`            | `.`         | Directory to audit                                                                |
-| `format`          | `markdown`  | Output format: `markdown` or `json`                                               |
-| `output`          | _(none)_    | Write report to file. Required for `comment-on-pr`.                               |
-| `threshold`       | `0.0`       | Fail action if overall score < this. `0.0` disables gating.                       |
-| `comment-on-pr`   | `false`     | Post the report as a PR comment. Requires `pull-requests: write` permission.      |
+| Name | Default | Description |
+|---|---|---|
+| `path` | `.` | Directory to audit |
+| `format` | `markdown` | `markdown` or `json` |
+| `output` | _(none)_ | Write report to file |
+| `threshold` | `0.0` | Fail action if overall score < this (0.0–10.0) |
+| `comment-on-pr` | `false` | Post the report as a PR comment |
+| `comment-mode` | `full` | `full` (entire report) · `diff` (delta vs base) · `none` |
+| `fail-on-regression` | `false` | Fail CI if PR score is lower than base by >0.1 (`diff` mode only) |
 
 ## Outputs
 
-| Name           | Description                                                |
-|----------------|------------------------------------------------------------|
-| `report-path`  | Path to the report file (only when `output` is provided)   |
+| Name | Description |
+|---|---|
+| `report-path` | Path to the generated report file |
+| `overall-score` | Numeric overall score (0.0–10.0) |
+| `base-score` | Overall score on base branch (PR + `diff` mode only) |
+| `score-delta` | head - base (signed, PR + `diff` mode only) |
 
----
+## What's next
 
-## What this action checks
+The action is **free, MIT, and complete**. Two things you can add on top:
 
-The underlying CLI is open source: **[Battam1111/zk-pipeline-doctor](https://github.com/Battam1111/zk-pipeline-doctor)** (MIT). It runs six independent detectors that work for any ZK project — Compact, Leo, Noir, Cairo, Risc0, or generic — and emits a weighted overall score plus a prioritized fix list with concrete commands.
+1. **[$99 Pre-Flight Audit](https://polar.sh/checkout/polar_c_gXO0FivhPZEULEbuWnpznkLPFdL2Koz68AvG93YoWFb)** — we run the same engine on your repo + narrate findings + personally review before delivering. 24h turnaround. [See sample](https://battam1111.github.io/bounty-radar-data/audits/sample.html). Pre-flight before a $10-50k human audit, NOT a substitute.
 
-- **Language**: detects the dominant ZK language and validates toolchain config (`Cargo.toml`, `nargo.toml`, `leo.toml`, etc.)
-- **Tests**: presence + ratio + framework conventions
-- **CI**: workflow files, matrix coverage, key signals
-- **Docs**: README sections, contribution guide, examples
-- **Security**: dependency pinning, sensitive-file scan, secret patterns
-- **Reproducibility**: lockfiles, fixed toolchain versions, deterministic build
-
-Every finding has a concrete command to fix it. No vague suggestions.
-
----
-
-## License
-
-MIT. No paid tier at this time. See [zk-pipeline-doctor](https://github.com/Battam1111/zk-pipeline-doctor) for the underlying CLI.
-
-
----
+2. **[Bounty Radar](https://polar.sh/checkout/polar_c_BbZbN6eJnZ7rwsUfT1pMsj4lTftwnfMoGdWBo0KozKU)** ($19-497/mo) — real-time ZK bounty alerts to Telegram / webhook / Slack. Filter by ecosystem, reward, keywords. [Compare tiers](https://battam1111.github.io/midnight-zk-cookbook/pricing.html#radar).
 
 ## License
 
 MIT © 2026 Battam1111
 
----
-
 <!-- related-projects:start -->
-
 ## Related projects
 
-- [**zk-pipeline-doctor**](https://github.com/Battam1111/zk-pipeline-doctor) — OSS CLI this action wraps
-- [**zk-doctor-bot**](https://github.com/Battam1111/zk-doctor-bot) — GitHub App: deeper, model-narrated PR reviews
-- [**midnight-zk-cookbook**](https://github.com/Battam1111/midnight-zk-cookbook) — currently in rollback; see DISCLOSURE there
-
+- [**zk-pipeline-doctor**](https://github.com/Battam1111/zk-pipeline-doctor) — the underlying CLI
+- [**bounty-radar-data**](https://battam1111.github.io/bounty-radar-data/) — live ZK bounty feed
+- [**bounty-radar-mcp**](https://github.com/Battam1111/bounty-radar-mcp) — MCP server for the feed
+- [**midnight-zk-cookbook**](https://battam1111.github.io/midnight-zk-cookbook/) — 17 ZK tutorials
 <!-- related-projects:end -->

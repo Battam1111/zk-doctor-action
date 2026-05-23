@@ -1,4 +1,4 @@
-# zk-doctor-action — ZK Pipeline Doctor GitHub Action
+# zk-doctor-action: ZK Pipeline Doctor GitHub Action
 
 [![Marketplace](https://img.shields.io/badge/GitHub%20Marketplace-zk--doctor--action-purple?logo=github&style=for-the-badge)](https://github.com/marketplace/actions/zk-pipeline-doctor)
 [![Latest](https://img.shields.io/badge/Latest-v1.1.0-blue?style=for-the-badge)](https://github.com/Battam1111/zk-doctor-action/releases/latest)
@@ -71,9 +71,9 @@ When `comment-mode: 'diff'`, the action runs zk-doctor on both PR HEAD **and** t
 
 The action is **free, MIT, and complete**. Two things you can add on top:
 
-1. **[$99 Pre-Flight Audit](https://polar.sh/checkout/polar_c_gXO0FivhPZEULEbuWnpznkLPFdL2Koz68AvG93YoWFb)** — we run the same engine on your repo + narrate findings + personally review before delivering. 24h turnaround. [See sample](https://battam1111.github.io/bounty-radar-data/audits/sample.html). Pre-flight before a $10-50k human audit, NOT a substitute.
+1. **[$99 Pre-Flight Audit](https://polar.sh/checkout/polar_c_gXO0FivhPZEULEbuWnpznkLPFdL2Koz68AvG93YoWFb)**: we run the same engine on your repo + narrate findings + personally review before delivering. 24h turnaround. [See sample](https://battam1111.github.io/bounty-radar-data/audits/sample.html). Pre-flight before a $10-50k human audit, NOT a substitute.
 
-2. **[Bounty Radar](https://polar.sh/checkout/polar_c_BbZbN6eJnZ7rwsUfT1pMsj4lTftwnfMoGdWBo0KozKU)** ($19-497/mo) — real-time ZK bounty alerts to Telegram / webhook / Slack. Filter by ecosystem, reward, keywords. [Compare tiers](https://battam1111.github.io/midnight-zk-cookbook/pricing.html#radar).
+2. **[Bounty Radar](https://polar.sh/checkout/polar_c_BbZbN6eJnZ7rwsUfT1pMsj4lTftwnfMoGdWBo0KozKU)** ($19-497/mo) (real-time ZK bounty alerts to Telegram / webhook / Slack). Filter by ecosystem, reward, keywords. [Compare tiers](https://battam1111.github.io/midnight-zk-cookbook/pricing.html#radar).
 
 ## License
 
@@ -82,8 +82,8 @@ MIT © 2026 Battam1111
 <!-- related-projects:start -->
 ## Related projects
 
-- [**zk-pipeline-doctor**](https://github.com/Battam1111/zk-pipeline-doctor) — the underlying CLI
-- [**bounty-radar-data**](https://battam1111.github.io/bounty-radar-data/) — live ZK bounty feed
-- [**bounty-radar-mcp**](https://github.com/Battam1111/bounty-radar-mcp) — MCP server for the feed
-- [**midnight-zk-cookbook**](https://battam1111.github.io/midnight-zk-cookbook/) — 17 ZK tutorials
+- [**zk-pipeline-doctor**](https://github.com/Battam1111/zk-pipeline-doctor); the underlying CLI
+- [**bounty-radar-data**](https://battam1111.github.io/bounty-radar-data/); live ZK bounty feed
+- [**bounty-radar-mcp**](https://github.com/Battam1111/bounty-radar-mcp); MCP server for the feed
+- [**midnight-zk-cookbook**](https://battam1111.github.io/midnight-zk-cookbook/); 17 ZK tutorials
 <!-- related-projects:end -->
